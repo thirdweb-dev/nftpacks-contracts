@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.0;
 
-import "@openzeppelin/contracts/token/ERC1155/presets/ERC1155PresetMinterPauser.sol";
+// OZ Utils
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
-
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/utils/Create2.sol";
 
+// NftPacks modules
 import "./IPack.sol";
+import "./Airdrop.sol";
 
-contract NftPacks is ERC1155PresetMinterPauser, ERC721Holder {
+contract NftPacks is ERC1155, ERC721Holder {
 
   /// @dev $PACK Protocol's pack contract.
-  IPack internal pack;
+  IPack public pack;
+  Airdrop public airdropSafe;
 
   /// @dev The token Id of the reward to mint.
   uint public nextTokenId;
@@ -30,14 +34,10 @@ contract NftPacks is ERC1155PresetMinterPauser, ERC721Holder {
     uint nftTokenId;
   }
 
-  /// @notice Reward Events.
+  /// @notice Events.
   event NativeRewards(address indexed creator, uint[] rewardIds, string[] rewardURIs, uint[] rewardSupplies);
   event ERC721Rewards(address indexed creator, address indexed nftContract, uint nftTokenId, uint rewardTokenId, string rewardURI);
   event ERC721Redeemed(address indexed redeemer, address indexed nftContract, uint nftTokenId, uint rewardTokenId);
-
-  /// @notice Airdrop events
-  event MerkleRoot(uint indexed packId, bytes32 merkleRoot);
-  event AirdropClaimed(uint indexed packId, address claimer, uint amount);
 
   /// @dev Reward tokenId => Reward state.
   mapping(uint => Reward) public rewards;
@@ -45,15 +45,21 @@ contract NftPacks is ERC1155PresetMinterPauser, ERC721Holder {
   /// @dev Reward tokenId => Underlying ERC721 reward state.
   mapping(uint => ERC721Reward) public erc721Rewards;
 
-  /// @dev Pack Id => airdrop merkle tree root.
-  mapping(uint => bytes32) public merkleRoot;
-
-  /// @dev Address => pack Id => whether the airdrop was claimed.
-  mapping(address => mapping(uint => bool)) public claimed;
-
-  constructor(address _pack) ERC1155PresetMinterPauser("") {
-    _setRoleAdmin(MINTER_ROLE, MINTER_ROLE);
+  constructor(address _pack) ERC1155("") {
+    // Set $PACK Protocol's pack contract.
     pack = IPack(_pack);
+  }
+
+  /// @dev Initializes NFT Packs.
+  function init() external {
+    // Deploy Airdrop safe.
+    bytes memory _airdropBytecode = abi.encodePacked(type(Airdrop).creationCode, abi.encode(address(this), address(pack)));
+    bytes32 _airdropSalt = bytes32("Airdrop safe");
+
+    address _airdropSafe = Create2.deploy(0, _airdropSalt, _airdropBytecode);
+    
+    // Set Airdrop safe.
+    airdropSafe = Airdrop(_airdropSafe);
   }
 
   /// @notice Create native ERC 1155 rewards.
@@ -78,16 +84,14 @@ contract NftPacks is ERC1155PresetMinterPauser, ERC721Holder {
       nextTokenId++;
     }
 
-    // Mint reward tokens to `msg.sender`
-    _setupRole(MINTER_ROLE, msg.sender);
-    mintBatch(msg.sender, rewardIds, _rewardSupplies, "");
-    revokeRole(MINTER_ROLE, msg.sender);
+    // Mint reward tokens to contract
+    _mintBatch(address(airdropSafe), rewardIds, _rewardSupplies, "");
 
     emit NativeRewards(msg.sender, rewardIds, _rewardURIs, _rewardSupplies);
   }
 
   /// @dev Wraps an ERC721 NFT as ERC1155 reward tokens. 
-  function wrapERC721(address _nftContract, uint _tokenId, string calldata _rewardURI) external {
+  function createERC721Rewards(address _nftContract, uint _tokenId, string calldata _rewardURI) external {
     require(
       IERC721(_nftContract).ownerOf(_tokenId) == msg.sender,
       "Rewards: Only the owner of the NFT can wrap it."
@@ -104,11 +108,9 @@ contract NftPacks is ERC1155PresetMinterPauser, ERC721Holder {
       _tokenId
     );
 
-    // Mint reward tokens to `msg.sender`
-    _setupRole(MINTER_ROLE, msg.sender);
-    mint(msg.sender, nextTokenId, 1, "");
-    revokeRole(MINTER_ROLE, msg.sender); 
-
+    // Mint reward tokens to contract
+    _mint(address(airdropSafe), nextTokenId, 1, "");
+    
     // Store reward state.
     rewards[nextTokenId] = Reward({
       creator: msg.sender,
@@ -133,86 +135,16 @@ contract NftPacks is ERC1155PresetMinterPauser, ERC721Holder {
     require(balanceOf(msg.sender, _rewardId) > 0, "Rewards: Cannot redeem a reward you do not own.");
         
     // Burn the reward token
-    burn(msg.sender, _rewardId, 1);
+    _burn(msg.sender, _rewardId, 1);
         
     // Transfer the NFT to `msg.sender`
     IERC721(erc721Rewards[_rewardId].nftContract).safeTransferFrom(
-      address(this), 
+      address(this),
       msg.sender,
       erc721Rewards[_rewardId].nftTokenId
     );
 
     emit ERC721Redeemed(msg.sender, erc721Rewards[_rewardId].nftContract, erc721Rewards[_rewardId].nftTokenId, _rewardId);
-  }
-
-  /// @dev Creates packs with rewards.
-  function createPack(string calldata _packURI, uint[] calldata _rewardIds, uint[] calldata _rewardAmounts) external returns (uint packId, uint packTotalSupply) {
-    (packId, packTotalSupply) = pack.createPack(_packURI, address(this), _rewardIds, _rewardAmounts, 0, 0);
-  }
-
-  /// @dev Set the merkle root for the pack airdrop
-  function setMerkleRoot(bytes32 _merkleRoot, uint _packId) external {
-    require(pack.creator(_packId) == msg.sender, "Only the creator of a pack can set its airdrop merkle root.");
-
-    merkleRoot[_packId] = _merkleRoot;
-    emit MerkleRoot(_packId, _merkleRoot);
-  }
-
-  /// @dev Lets an address claim a pack from the airdrop
-  function claimAirdrop(uint _packId, bytes32[] memory _proof) external {
-    
-    bytes32 leaf = bytes32(uint256(uint160(msg.sender)));
-
-    // Check eligibility for airdrop.
-    require(verify(merkleRoot[_packId], leaf, _proof), "NFT Packs: address not eligible for airdrop.");
-    require(!claimed[msg.sender][_packId], "NFT Packs: address has already claimed airdrop.");
-
-    // Update claim status
-    claimed[msg.sender][_packId] = true;
-
-    // Transfer 1 pack to caller.
-    pack.safeTransferFrom(address(this), msg.sender, _packId, 1, "");
-
-    emit AirdropClaimed(_packId, msg.sender, 1);
-  }
-
-  /// @dev Lets the creator of a pack claim away all packs.
-  function claimAllRemaining(uint _packId) external {
-    require(pack.creator(_packId) == msg.sender, "Only the creator of a pack can claim away all packs.");
-
-    uint packBalance = pack.balanceOf(address(this), _packId);
-
-    // Transfer all packs to caller.
-    pack.safeTransferFrom(address(this), msg.sender, _packId, packBalance, "");
-
-    emit AirdropClaimed(_packId, msg.sender, packBalance);
-  }
-
-  function verify(
-    bytes32 root,
-    bytes32 leaf,
-    bytes32[] memory proof
-  )
-    internal
-    pure
-    returns (bool)
-  {
-    bytes32 computedHash = leaf;
-
-    for (uint256 i = 0; i < proof.length; i++) {
-      bytes32 proofElement = proof[i];
-
-      if (computedHash < proofElement) {
-        // Hash(current computed hash + current element of the proof)
-        computedHash = keccak256(abi.encodePacked(computedHash, proofElement));
-      } else {
-        // Hash(current element of the proof + current computed hash)
-        computedHash = keccak256(abi.encodePacked(proofElement, computedHash));
-      }
-    }
-
-    // Check if the computed hash (root) is equal to the provided root
-    return computedHash == root;
   }
 
   /// @dev Updates a token's total supply.
