@@ -229,7 +229,7 @@
   },
   {
     "inputs": [],
-    "name": "airdropSafe",
+    "name": "airdropCenter",
     "outputs": [
       {
         "internalType": "contract Airdrop",
@@ -478,7 +478,18 @@
       }
     ],
     "name": "redeemERC721",
-    "outputs": [],
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "nftContract",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "nftTokenId",
+        "type": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable",
     "type": "function"
   },

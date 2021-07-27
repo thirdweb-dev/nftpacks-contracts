@@ -282,6 +282,19 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "_rewardId",
+        "type": "uint256"
+      }
+    ],
+    "name": "returnUnderlyingNFT",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "bytes32",
         "name": "_merkleRoot",
         "type": "bytes32"
