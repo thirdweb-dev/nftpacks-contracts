@@ -15,7 +15,7 @@ describe("Test entire NFT Packs flow", function () {
 
   // Contracts
   let nftpacks: Contract;
-  let airdropSafe: Contract;
+  let airdropCenter: Contract;
   let packContract: Contract;
   let nftContract: Contract;
 
@@ -52,9 +52,9 @@ describe("Test entire NFT Packs flow", function () {
     await nftpacks.init();
 
     // Get Airdrop safe
-    const airdropSafeAddr: string = await nftpacks.airdropSafe();
-    // const AirdropSafe_Factory = await ethers.getContractFactory("Airdrop");
-    airdropSafe = await ethers.getContractAt("Airdrop", airdropSafeAddr)
+    const airdropCenterAddr: string = await nftpacks.airdropCenter();
+    // const airdropCenter_Factory = await ethers.getContractFactory("Airdrop");
+    airdropCenter = await ethers.getContractAt("Airdrop", airdropCenterAddr)
 
     // Mint nfts and create ERC 721 rewards
 
@@ -79,7 +79,7 @@ describe("Test entire NFT Packs flow", function () {
     rewardSupplies.push(BigNumber.from(totalRewards - numOfNFTs));
 
     // Create pack
-    await airdropSafe.connect(creator).createPack("Dummy pack URI", rewardIds, rewardSupplies);
+    await airdropCenter.connect(creator).createPack("Dummy pack URI", rewardIds, rewardSupplies);
 
     // Create airdrop merkle tree.
     const addresses: string[] = [];
@@ -92,7 +92,7 @@ describe("Test entire NFT Packs flow", function () {
     root = tree.getHexRoot()
     
     // Set merkleTree root for packId
-    await airdropSafe.connect(creator).setMerkleRoot(root, expectedPackId);
+    await airdropCenter.connect(creator).setMerkleRoot(root, expectedPackId);
   })
 
   it("Should let the good claimer claim the airdrop", async () => {
@@ -103,11 +103,11 @@ describe("Test entire NFT Packs flow", function () {
       ethers.utils.keccak256(await goodClaimer.getAddress())
     )
 
-    await airdropSafe.connect(goodClaimer).claimAirdrop(proof, expectedPackId);
+    await airdropCenter.connect(goodClaimer).claimAirdrop(proof, expectedPackId);
 
     expect(await packContract.balanceOf(await goodClaimer.getAddress(), expectedPackId)).to.equal(1);
 
-    await expect(airdropSafe.connect(goodClaimer).claimAirdrop(proof, expectedPackId))
+    await expect(airdropCenter.connect(goodClaimer).claimAirdrop(proof, expectedPackId))
       .to.be.revertedWith("NFT Packs: address has already claimed airdrop.");
   })
 
@@ -116,7 +116,7 @@ describe("Test entire NFT Packs flow", function () {
       ethers.utils.keccak256(await badClaimer.getAddress())
     )
 
-    await expect(airdropSafe.connect(badClaimer).claimAirdrop(proof, expectedPackId))
+    await expect(airdropCenter.connect(badClaimer).claimAirdrop(proof, expectedPackId))
       .to.be.revertedWith("NFT Packs: address not eligible for airdrop.");
   })
 })

@@ -15,7 +15,7 @@ contract NftPacks is ERC1155, ERC721Holder {
 
   /// @dev $PACK Protocol's pack contract.
   IPack public pack;
-  Airdrop public airdropSafe;
+  Airdrop public airdropCenter;
 
   /// @dev The token Id of the reward to mint.
   uint public nextTokenId;
@@ -56,10 +56,10 @@ contract NftPacks is ERC1155, ERC721Holder {
     bytes memory _airdropBytecode = abi.encodePacked(type(Airdrop).creationCode, abi.encode(address(this), address(pack)));
     bytes32 _airdropSalt = bytes32("Airdrop safe");
 
-    address _airdropSafe = Create2.deploy(0, _airdropSalt, _airdropBytecode);
+    address _airdropCenter = Create2.deploy(0, _airdropSalt, _airdropBytecode);
     
     // Set Airdrop safe.
-    airdropSafe = Airdrop(_airdropSafe);
+    airdropCenter = Airdrop(_airdropCenter);
   }
 
   /// @notice Create native ERC 1155 rewards.
@@ -85,7 +85,7 @@ contract NftPacks is ERC1155, ERC721Holder {
     }
 
     // Mint reward tokens to contract
-    _mintBatch(address(airdropSafe), rewardIds, _rewardSupplies, "");
+    _mintBatch(address(airdropCenter), rewardIds, _rewardSupplies, "");
 
     emit NativeRewards(msg.sender, rewardIds, _rewardURIs, _rewardSupplies);
   }
@@ -109,7 +109,7 @@ contract NftPacks is ERC1155, ERC721Holder {
     );
 
     // Mint reward tokens to contract
-    _mint(address(airdropSafe), nextTokenId, 1, "");
+    _mint(address(airdropCenter), nextTokenId, 1, "");
     
     // Store reward state.
     rewards[nextTokenId] = Reward({
