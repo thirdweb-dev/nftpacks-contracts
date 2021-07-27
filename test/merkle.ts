@@ -1,8 +1,8 @@
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
 import { Signer, Contract, ContractFactory, BigNumber } from "ethers";
-import keccak256 from 'keccak256'
 
+import keccak256 from 'keccak256'
 import { MerkleTree } from 'merkletreejs'
 
 describe("Test entire NFT Packs flow", function () {
@@ -53,7 +53,6 @@ describe("Test entire NFT Packs flow", function () {
 
     // Get Airdrop safe
     const airdropCenterAddr: string = await nftpacks.airdropCenter();
-    // const airdropCenter_Factory = await ethers.getContractFactory("Airdrop");
     airdropCenter = await ethers.getContractAt("Airdrop", airdropCenterAddr)
 
     // Mint nfts and create ERC 721 rewards
