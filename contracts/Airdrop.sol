@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.0;
 
+// OZ Utils
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
-
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-
-import "./IPack.sol";
-
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
-import "hardhat/console.sol";
+// NftPacks modules
+import "./NftPacks.sol";
+import "./IPack.sol";
 
 contract Airdrop is ERC1155Holder {
 
@@ -35,6 +34,15 @@ contract Airdrop is ERC1155Holder {
     pack = _pack;
 
     IERC1155(_nftPacks).setApprovalForAll(_pack, true);
+  }
+
+  /// @dev Returns the underlying NFT to the creator.
+  function returnUnderlyingNFT(uint _rewardId) external {
+    require(NftPacks(nftPacks).creator(_rewardId) == msg.sender, "NFT Packs: only the creator can take back the NFT.");
+
+    // Return NFT to the creator.
+    (address nftContract, uint nftTokenId) = NftPacks(nftPacks).redeemERC721(_rewardId);
+    IERC721(nftContract).safeTransferFrom(address(this), msg.sender, nftTokenId); 
   }
 
   /// @dev Creates packs with rewards.

@@ -15,6 +15,8 @@ contract NftPacks is ERC1155, ERC721Holder {
 
   /// @dev $PACK Protocol's pack contract.
   IPack public pack;
+
+  /// @dev NFT Packs airdrop contract.
   Airdrop public airdropCenter;
 
   /// @dev The token Id of the reward to mint.
@@ -131,18 +133,17 @@ contract NftPacks is ERC1155, ERC721Holder {
   }
   
   /// @dev Lets the reward owner redeem their ERC721 NFT.
-  function redeemERC721(uint _rewardId) external {
+  function redeemERC721(uint _rewardId) external returns (address nftContract, uint nftTokenId) {
     require(balanceOf(msg.sender, _rewardId) > 0, "Rewards: Cannot redeem a reward you do not own.");
-        
+    
+    nftContract = erc721Rewards[_rewardId].nftContract;
+    nftTokenId = erc721Rewards[_rewardId].nftTokenId;
+
     // Burn the reward token
     _burn(msg.sender, _rewardId, 1);
         
     // Transfer the NFT to `msg.sender`
-    IERC721(erc721Rewards[_rewardId].nftContract).safeTransferFrom(
-      address(this),
-      msg.sender,
-      erc721Rewards[_rewardId].nftTokenId
-    );
+    IERC721(nftContract).safeTransferFrom(address(this), msg.sender, nftTokenId);
 
     emit ERC721Redeemed(msg.sender, erc721Rewards[_rewardId].nftContract, erc721Rewards[_rewardId].nftTokenId, _rewardId);
   }
