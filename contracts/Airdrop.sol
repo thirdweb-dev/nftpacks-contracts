@@ -16,6 +16,9 @@ contract Airdrop is ERC1155Holder {
   address public nftPacks;
   address public pack;
 
+  /// @dev Whether the airdrop is 'free for all'
+  mapping(uint => bool) public freeForAll;
+
   /// @dev Pack Id => airdrop merkle tree root.
   mapping(uint => bytes32) public merkleRoot;
 
@@ -65,13 +68,26 @@ contract Airdrop is ERC1155Holder {
     emit MerkleRoot(_packId, _merkleRoot);
   }
 
+  /// @dev Lets a pack creator set the airdrop as 'freefor all' or not.
+  function setFreeForAll(uint _packId, bool _freeForAll) external {
+    require(
+      IPack(pack).creator(_packId) == address(this) && creator[_packId] == msg.sender, 
+      "Only the creator of a pack can set its airdrop merkle root."
+    );
+
+    freeForAll[_packId] = _freeForAll;
+  }
+
   /// @dev Lets an address claim a pack from the airdrop
   function claimAirdrop(bytes32[] memory _proof, uint _packId) external {
     
-    bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
+    if(!freeForAll[_packId]) {
+      bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
 
-    // Check eligibility for airdrop.
-    require(MerkleProof.verify(_proof, merkleRoot[_packId], leaf), "NFT Packs: address not eligible for airdrop.");
+      // Check eligibility for airdrop.
+      require(MerkleProof.verify(_proof, merkleRoot[_packId], leaf), "NFT Packs: address not eligible for airdrop.");
+    }
+    
     require(!claimed[msg.sender][_packId], "NFT Packs: address has already claimed airdrop.");
 
     // Update claim status
