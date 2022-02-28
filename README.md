@@ -29,7 +29,7 @@ will yield an ERC 1155 NFT as a proof of participating in the givaway.
 Clone the project
 
 ```bash
-  git clone https://github.com/nftlabs/nftpacks-contracts.git
+  git clone https://github.com/thirdweb-dev/nftpacks-contracts.git
 ```
 
 Go to the project directory
