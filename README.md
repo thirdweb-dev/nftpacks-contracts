@@ -61,4 +61,4 @@ npx hardhat run scripts/deployer/rinkeby.ts --network rinkeby
   
 ## Authors
 
-- [@nftlabs](https://www.github.com/nftlabs)
+- [thirdweb](https://www.github.com/thirdweb-dev)
